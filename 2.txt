@@ -1,0 +1,187 @@
+
+AdditionObj.java
+/**
+ *
+ * @author imed
+ */
+ import AdditionApp.*;
+ import org.omg.CosNaming.*;
+ import org.omg.CosNaming.NamingContextPackage.*;
+ import org.omg.CORBA.*;
+ import org.omg.PortableServer.*;
+ import org.omg.PortableServer.POA;
+ import java.util.Properties;
+
+ class AdditionObj extends AdditionPOA {
+ private ORB orb;
+
+ public void setORB(ORB orb_val) {
+ orb = orb_val;
+ }
+
+ // implement add() method
+ public int add(int n) {
+ int res = 1, i;
+ for (i = 2; i <= n; i++)
+ res *= i;
+ return res;
+ }
+
+ // implement shutdown() method
+ public void shutdown() {
+ orb.shutdown(false);
+ }
+ }
+Fact.idl
+/**
+ *
+ * @author imed
+ */
+ module AdditionApp
+ {
+ interface Addition
+ {
+ long add(in long a);
+1
+ oneway void shutdown();
+ };
+ };
+FastServer.java
+ /**
+ *
+ * @author imed
+ */
+ import AdditionApp.*;
+
+ import org.omg.CosNaming.*;
+ import org.omg.CosNaming.NamingContextPackage.*;
+ import org.omg.CORBA.*;
+ import org.omg.PortableServer.*;
+ import org.omg.PortableServer.POA;
+ import java.util.Properties;
+
+ public class FactServer {
+
+ public static void main(String args[]) {
+ try{
+ // create and initialize the ORB //// get reference to rootpoa &amp;
+activate the POAManager
+ ORB orb = ORB.init(args, null);
+ POA rootpoa =
+POAHelper.narrow(orb.resolve_initial_references("RootPOA"));
+ rootpoa.the_POAManager().activate();
+
+ // create servant and register it with the ORB
+ AdditionObj addobj = new AdditionObj();
+ addobj.setORB(orb);
+
+ // get object reference from the servant
+ org.omg.CORBA.Object ref = rootpoa.servant_to_reference(addobj);
+ Addition href = AdditionHelper.narrow(ref);
+
+ org.omg.CORBA.Object objRef =
+orb.resolve_initial_references("NameService");
+ NamingContextExt ncRef = NamingContextExtHelper.narrow(objRef);
+
+ NameComponent path[] = ncRef.to_name( "ABC" );
+ ncRef.rebind(path, href);
+
+ System.out.println("Addition Server ready and waiting ...");
+
+ // wait for invocations from clients
+ for (;;){
+2
+ orb.run();
+ }
+ }
+
+ catch (Exception e) {
+ System.err.println("ERROR: " + e);
+ e.printStackTrace(System.out);
+ }
+
+ System.out.println("HelloServer Exiting ...");
+
+ }
+ }
+FastClient.java:
+/**
+*
+* @author imed
+*/
+import AdditionApp.*;
+import org.omg.CosNaming.*;
+import org.omg.CosNaming.NamingContextPackage.*;
+import org.omg.CORBA.*;
+import java.util.Scanner;
+public class FactClient {
+ public static void main(String[] args) {
+ try {
+ ORB orb = ORB.init(args, null);
+ org.omg.CORBA.Object objRef =
+orb.resolve_initial_references("NameService");
+ NamingContextExt ncRef = NamingContextExtHelper.narrow(objRef);
+ Addition addobj = AdditionHelper.narrow(ncRef.resolve_str("ABC"));
+ Scanner c = new Scanner(System.in);
+ System.out.println("Welcome to the Factorial system! Type 'exit' to
+stop.");
+ while (true) {
+ System.out.print("Enter a number (or type 'exit' to quit): ");
+ String input = c.nextLine();
+ if (input.equalsIgnoreCase("exit")) {
+ System.out.println("Exiting the program. Goodbye!");
+ break;
+ }
+ try {
+ int a = Integer.parseInt(input);
+3
+ int r = addobj.add(a);
+ System.out.println("The result for factorial is: " + r);
+ } catch (NumberFormatException e) {
+ System.out.println("Invalid input. Please enter a valid integer.");
+ }
+ System.out.println("-----------------------------------");
+ }
+ c.close();
+ } catch (Exception e) {
+ System.out.println("Hello Client exception: " + e);
+ e.printStackTrace();
+ }
+ }
+}
+OUTPUT:
+Terminal 1
+bash: /home/itl1/.bashrc: line 132: syntax error near unexpected token
+`newline'
+bash: /home/itl1/.bashrc: line 132: ` <<< conda initialize <<<'
+(base) itl1@itl1-OptiPlex-390:~/02-CORBA/CODE/corbajava/NEWFACT$
+idlj -fall Fact.idl
+(base) itl1@itl1-OptiPlex-390:~/02-CORBA/CODE/corbajava/NEWFACT$
+javac *.java AdditionApp/*.java
+Note: AdditionApp/AdditionPOA.java uses unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+(base) itl1@itl1-OptiPlex-390:~/02-CORBA/CODE/corbajava/NEWFACT$
+orbd -ORBInitialPort 1050&
+[1] 8288
+(base) itl1@itl1-OptiPlex-390:~/02-CORBA/CODE/corbajava/NEWFACT$
+java FactServer -ORBInitialPort 1050 -ORBInitialHost localhost&
+[2] 8306
+(base) itl1@itl1-OptiPlex-390:~/02-CORBA/CODE/corbajava/NEWFACT$
+Addition Server ready and waiting ...
+Terminal2:
+(base) itl1@itl1-OptiPlex-390:~/02-CORBA/CODE/corbajava/NEWFACT$
+java FactClient -ORBInitialPort 1050 -ORBInitialHost localhost
+Welcome to the Factorial system! Type 'exit' to stop.
+Enter a number (or type 'exit' to quit): 4
+The result for factorial is: 24
+-----------------------------------
+Enter a number (or type 'exit' to quit): 5
+The result for factorial is: 120
+-----------------------------------
+Enter a number (or type 'exit' to quit): 3
+The result for factorial is: 6
+-----------------------------------
+4
+Enter a number (or type 'exit' to quit): exit
+Exiting the program. Goodbye!
+5
